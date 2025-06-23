@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Xem & Tìm kiếm dữ liệu Excel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 20px; }
+    table { margin-top: 20px; }
+    th, td { font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 class="mb-4">📊 Xem & Tìm kiếm dữ liệu Excel</h2>
+
+  <div class="mb-3">
+    <label class="form-label">Tải file Excel:</label>
+    <input type="file" id="uploadInput" class="form-control">
+    <button class="btn btn-primary mt-2" onclick="uploadFile()">⬆️ Upload</button>
+    <div id="uploadStatus" class="mt-2 text-success"></div>
+  </div>
+
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label class="form-label">File:</label>
+      <select id="fileSelect" class="form-select">
+        <option value="">-- Chọn file Excel --</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Sheet:</label>
+      <select id="sheetSelect" class="form-select">
+        <option value="">-- Chọn sheet --</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Từ khóa:</label>
+      <input type="text" id="searchBox" class="form-control" placeholder="Ví dụ: Nguyễn Văn A">
+    </div>
+  </div>
+
+  <button class="btn btn-success" onclick="loadData()">🔍 Tìm</button>
+  <button class="btn btn-outline-secondary" onclick="exportCSV()">⬇️ Xuất CSV</button>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover mt-3" id="excelTable"></table>
+  </div>
+</div>
+
+<script>
+let selectedFile = '', selectedSheet = '';
+
+function fetchFiles() {
+  fetch('/list-files')
+    .then(res => res.json())
+    .then(files => {
+      const fileSelect = document.getElementById('fileSelect');
+      fileSelect.innerHTML = '<option value="">-- Chọn file Excel --</option>' + 
+        files.map(f => `<option value="${f}">${f}</option>`).join('');
+      fileSelect.onchange = () => {
+        selectedFile = fileSelect.value;
+        if (selectedFile) fetchSheets(selectedFile);
+      };
+    });
+}
+
+function fetchSheets(file) {
+  fetch('/list-sheets?file=' + encodeURIComponent(file))
+    .then(res => res.json())
+    .then(sheets => {
+      const sheetSelect = document.getElementById('sheetSelect');
+      sheetSelect.innerHTML = '<option value="">-- Chọn sheet --</option>' + 
+        sheets.map(s => `<option value="${s}">${s}</option>`).join('');
+      sheetSelect.onchange = () => selectedSheet = sheetSelect.value;
+    });
+}
+
+function loadData() {
+  selectedFile = document.getElementById('fileSelect').value;
+  selectedSheet = document.getElementById('sheetSelect').value;
+  const search = document.getElementById('searchBox').value;
+  if (!selectedFile || !selectedSheet) return alert("Vui lòng chọn file và sheet.");
+  fetch(`/excel-data?file=${encodeURIComponent(selectedFile)}&sheet=${encodeURIComponent(selectedSheet)}&search=${encodeURIComponent(search)}`)
+    .then(res => res.json())
+    .then(data => {
+      const table = document.getElementById('excelTable');
+      if (!data.length) return table.innerHTML = '<tr><td colspan="99">Không có dữ liệu</td></tr>';
+      const headers = Object.keys(data[0]);
+      const thead = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+      const rows = data.map(row => '<tr>' + headers.map(h => `<td>${row[h]}</td>`).join('') + '</tr>').join('');
+      table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+    });
+}
+
+function exportCSV() {
+  if (!selectedFile || !selectedSheet) return alert("Chọn file và sheet trước khi xuất CSV.");
+  window.open(`/export-csv?file=${encodeURIComponent(selectedFile)}&sheet=${encodeURIComponent(selectedSheet)}`, '_blank');
+}
+
+function uploadFile() {
+  const input = document.getElementById('uploadInput');
+  if (!input.files.length) return alert("Chọn một file để tải lên.");
+  const formData = new FormData();
+  formData.append("file", input.files[0]);
+  fetch('/upload', { method: 'POST', body: formData })
+    .then(res => res.json())
+    .then(result => {
+      if (result.filename) {
+        document.getElementById('uploadStatus').innerText = "✅ Đã tải lên: " + result.filename;
+        fetchFiles();
+      } else {
+        document.getElementById('uploadStatus').innerText = "❌ " + (result.error || "Lỗi không xác định");
+      }
+    });
+}
+
+fetchFiles();
+</script>
+
+</body>
+</html>
