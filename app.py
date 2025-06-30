@@ -66,9 +66,10 @@ def upload_file():
         return jsonify({"message": "File uploaded successfully", "filename": filename})
     return jsonify({"error": "Invalid file type"}), 400
 
+
 @app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
+def home():
+    return '✅ Hello from Flask on Render!'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
